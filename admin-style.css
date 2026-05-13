@@ -1103,3 +1103,77 @@ img {
     max-width: 300px;
   }
 }
+
+/* ===== MOBILE OVERFLOW FIX ===== */
+
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+section,
+div,
+container,
+.hero,
+.hero-container,
+.navbar,
+.stats,
+.cards,
+.grid {
+  max-width: 100%;
+}
+
+/* HERO FIX */
+.hero-container {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* IMAGE FIX */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* MOBILE */
+@media screen and (max-width: 768px) {
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .hero,
+  .hero-container,
+  .navbar,
+  .stats {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  .hero-content,
+  .hero-image,
+  .card,
+  .stat-box {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  h1 {
+    font-size: 32px !important;
+    line-height: 1.2;
+  }
+
+  p {
+    font-size: 16px !important;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}
