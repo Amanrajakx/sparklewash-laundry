@@ -12,6 +12,9 @@ const SERVICE_LABELS = {
   'express': 'Express Service'
 };
 
+// ================================================================
+// CREATE TRANSPORTER
+// ================================================================
 function createTransporter() {
   if (
     !process.env.EMAIL_USER ||
@@ -25,7 +28,13 @@ function createTransporter() {
   console.log(`📧 Email transporter created for: ${process.env.EMAIL_USER}`);
 
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
 
     logger: true,
     debug: true,
@@ -33,12 +42,16 @@ function createTransporter() {
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS.replace(/\s/g, '')
+    },
+
+    tls: {
+      rejectUnauthorized: false
     }
   });
 }
 
 // ================================================================
-// Helper to build table rows
+// HELPER FUNCTION
 // ================================================================
 function row(label, value) {
   return `
@@ -55,7 +68,7 @@ function row(label, value) {
 }
 
 // ================================================================
-// EMAIL TO ADMIN
+// ADMIN EMAIL
 // ================================================================
 async function sendAdminEmail(booking) {
   try {
@@ -76,6 +89,12 @@ async function sendAdminEmail(booking) {
     console.log('FROM:', process.env.EMAIL_USER);
     console.log('TO:', ownerEmail);
 
+    // VERIFY SMTP CONNECTION
+    await transporter.verify();
+
+    console.log('✅ SMTP server is ready');
+
+    // SEND EMAIL
     const info = await transporter.sendMail({
       from: `"Laundry Aman System" <${process.env.EMAIL_USER}>`,
       to: ownerEmail,
@@ -132,7 +151,7 @@ async function sendAdminEmail(booking) {
 }
 
 // ================================================================
-// EMAIL TO CUSTOMER
+// CUSTOMER EMAIL
 // ================================================================
 async function sendCustomerEmail(
   booking,
@@ -153,6 +172,12 @@ async function sendCustomerEmail(
     console.log('FROM:', process.env.EMAIL_USER);
     console.log('TO:', customerEmail);
 
+    // VERIFY SMTP CONNECTION
+    await transporter.verify();
+
+    console.log('✅ SMTP server is ready');
+
+    // SEND EMAIL
     const info = await transporter.sendMail({
       from: `"Laundry Aman" <${process.env.EMAIL_USER}>`,
       to: customerEmail,
@@ -208,7 +233,7 @@ async function sendCustomerEmail(
 }
 
 // ================================================================
-// MAIN EMAIL FUNCTION
+// MAIN FUNCTION
 // ================================================================
 async function sendBookingEmails(
   booking,
