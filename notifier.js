@@ -59,7 +59,7 @@ async function notifyStatusChange(booking) {
   const statusText = statusLabels[booking.status];
   if (!statusText) return;
 
-  const msg = `Hi ${booking.full_name}, your SparkleWash order ${booking.booking_ref} is now ${statusText}`;
+  const msg = `Hi ${booking.fullName}, your SparkleWash order ${booking.bookingRef} is now ${statusText}`;
   
   // Send both for maximum reach (in simulation)
   await sendWhatsApp(booking.phone, msg);
@@ -70,7 +70,7 @@ async function notifyStatusChange(booking) {
  * Notifies customer of new booking
  */
 async function notifyNewBooking(booking) {
-  const msg = `Hi ${booking.full_name}, thank you for booking with SparkleWash! Your Booking Ref is ${booking.booking_ref}. We will pick up your laundry on ${booking.pickup_date} (${booking.pickup_time}).`;
+  const msg = `Hi ${booking.fullName}, thank you for booking with SparkleWash! Your Booking Ref is ${booking.bookingRef}. We will pick up your laundry on ${booking.pickupDate} (${booking.pickupTime}).`;
   await sendWhatsApp(booking.phone, msg);
 }
 
