@@ -1177,3 +1177,49 @@ img {
     width: 100%;
   }
 }
+
+/* FINAL MOBILE FIX */
+
+html,
+body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+}
+
+body {
+  position: relative;
+}
+
+img,
+video,
+iframe {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@media screen and (max-width: 768px) {
+
+  .dashboard,
+  .main-content,
+  .table-section,
+  .topbar,
+  .stats-row,
+  .sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .bookings-table {
+    min-width: 700px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
