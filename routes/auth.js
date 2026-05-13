@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../database');
+const Admin = require('../models/Admin');
 
 // ================================================================
 // POST /api/auth/login
@@ -22,21 +22,26 @@ router.post('/login', async (req, res) => {
     return res.status(429).json({ success: false, error: 'Too many login attempts. Please wait and try again.' });
   }
 
-  const admin = db.prepare('SELECT * FROM admin_users WHERE username = ?').get(username.trim());
+  try {
+    const admin = await Admin.findOne({ username: username.trim() });
 
-  if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
-    req.session.loginAttempts = (req.session.loginAttempts || 0) + 1;
-    return res.status(401).json({ success: false, error: 'Invalid username or password.' });
+    if (!admin || !bcrypt.compareSync(password, admin.passwordHash)) {
+      req.session.loginAttempts = (req.session.loginAttempts || 0) + 1;
+      return res.status(401).json({ success: false, error: 'Invalid username or password.' });
+    }
+
+    // Successful login — store session
+    req.session.loginAttempts = 0;
+    req.session.adminId = admin._id;
+    req.session.adminUsername = admin.username;
+
+    console.log(`🔐 Admin "${admin.username}" logged in at ${new Date().toLocaleString('en-IN')}`);
+
+    return res.json({ success: true, username: admin.username });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ success: false, error: 'Internal server error.' });
   }
-
-  // Successful login — store session
-  req.session.loginAttempts = 0;
-  req.session.adminId = admin.id;
-  req.session.adminUsername = admin.username;
-
-  console.log(`🔐 Admin "${admin.username}" logged in at ${new Date().toLocaleString('en-IN')}`);
-
-  return res.json({ success: true, username: admin.username });
 });
 
 // ================================================================

@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../database');
+const Customer = require('../models/Customer');
 
 function requireCustomer(req, res, next) {
     if (req.session && req.session.customerId) return next();
@@ -14,7 +14,7 @@ function requireCustomer(req, res, next) {
 // ================================================================
 // POST /api/customers/register
 // ================================================================
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
     const { fullName, phone, email, password } = req.body;
 
     const errors = [];
@@ -23,21 +23,31 @@ router.post('/register', (req, res) => {
     if (!password || password.length < 6) errors.push('Password must be at least 6 characters.');
     if (errors.length) return res.status(400).json({ success: false, errors });
 
-    const existing = db.prepare('SELECT id FROM customers WHERE phone = ?').get(phone.trim());
-    if (existing) return res.status(409).json({ success: false, error: 'An account with this phone number already exists. Please log in.' });
-
     try {
+        const existing = await Customer.findOne({ phone: phone.trim() });
+        if (existing) return res.status(409).json({ success: false, error: 'An account with this phone number already exists. Please log in.' });
+
         const hash = bcrypt.hashSync(password, 10);
-        const result = db.prepare(
-            'INSERT INTO customers (full_name, phone, email, password_hash) VALUES (?, ?, ?, ?)'
-        ).run(fullName.trim(), phone.trim(), (email || '').trim(), hash);
+        const customer = await Customer.create({
+            fullName: fullName.trim(),
+            phone: phone.trim(),
+            email: (email || '').trim(),
+            passwordHash: hash
+        });
 
-        const customer = db.prepare('SELECT id, full_name, phone, email, address FROM customers WHERE id = ?').get(result.lastInsertRowid);
+        req.session.customerId = customer._id;
+        req.session.customerName = customer.fullName;
 
-        req.session.customerId = customer.id;
-        req.session.customerName = customer.full_name;
-
-        return res.status(201).json({ success: true, customer });
+        return res.status(201).json({ 
+            success: true, 
+            customer: {
+                id: customer._id,
+                fullName: customer.fullName,
+                phone: customer.phone,
+                email: customer.email,
+                address: customer.address
+            } 
+        });
     } catch (err) {
         console.error('Register error:', err);
         return res.status(500).json({ success: false, error: 'Could not create account. Try again.' });
@@ -47,24 +57,32 @@ router.post('/register', (req, res) => {
 // ================================================================
 // POST /api/customers/login
 // ================================================================
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
     const { phone, password } = req.body;
     if (!phone || !password) return res.status(400).json({ success: false, error: 'Phone and password are required.' });
 
-    const customer = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone.trim());
-    if (!customer || !bcrypt.compareSync(password, customer.password_hash)) {
-        return res.status(401).json({ success: false, error: 'Invalid phone number or password.' });
-    }
-
-    req.session.customerId = customer.id;
-    req.session.customerName = customer.full_name;
-
-    return res.json({
-        success: true, customer: {
-            id: customer.id, full_name: customer.full_name,
-            phone: customer.phone, email: customer.email, address: customer.address
+    try {
+        const customer = await Customer.findOne({ phone: phone.trim() });
+        if (!customer || !bcrypt.compareSync(password, customer.passwordHash)) {
+            return res.status(401).json({ success: false, error: 'Invalid phone number or password.' });
         }
-    });
+
+        req.session.customerId = customer._id;
+        req.session.customerName = customer.fullName;
+
+        return res.json({
+            success: true, customer: {
+                id: customer._id, 
+                fullName: customer.fullName,
+                phone: customer.phone, 
+                email: customer.email, 
+                address: customer.address
+            }
+        });
+    } catch (err) {
+        console.error('Login error:', err);
+        return res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
 });
 
 // ================================================================
@@ -80,28 +98,62 @@ router.post('/logout', (req, res) => {
 // ================================================================
 // GET /api/customers/me
 // ================================================================
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
     if (!req.session || !req.session.customerId) return res.json({ loggedIn: false });
-    const customer = db.prepare('SELECT id, full_name, phone, email, address, created_at FROM customers WHERE id = ?').get(req.session.customerId);
-    if (!customer) return res.json({ loggedIn: false });
-    return res.json({ loggedIn: true, customer });
+    
+    try {
+        const customer = await Customer.findById(req.session.customerId).select('-passwordHash');
+        if (!customer) return res.json({ loggedIn: false });
+        
+        return res.json({ 
+            loggedIn: true, 
+            customer: {
+                id: customer._id,
+                fullName: customer.fullName,
+                phone: customer.phone,
+                email: customer.email,
+                address: customer.address,
+                createdAt: customer.createdAt
+            } 
+        });
+    } catch (err) {
+        return res.json({ loggedIn: false });
+    }
 });
 
 // ================================================================
 // PATCH /api/customers/profile  — Update profile
 // ================================================================
-router.patch('/profile', requireCustomer, (req, res) => {
+router.patch('/profile', requireCustomer, async (req, res) => {
     const { fullName, email, address } = req.body;
     if (!fullName || fullName.trim().length < 2) return res.status(400).json({ success: false, error: 'Full name is required.' });
 
     try {
-        db.prepare(`UPDATE customers SET full_name=?, email=?, address=?, updated_at=datetime('now','localtime') WHERE id=?`)
-            .run(fullName.trim(), (email || '').trim(), (address || '').trim(), req.session.customerId);
+        const customer = await Customer.findByIdAndUpdate(
+            req.session.customerId,
+            { 
+                fullName: fullName.trim(), 
+                email: (email || '').trim(), 
+                address: (address || '').trim() 
+            },
+            { new: true }
+        ).select('-passwordHash');
 
-        req.session.customerName = fullName.trim();
-        const updated = db.prepare('SELECT id, full_name, phone, email, address FROM customers WHERE id = ?').get(req.session.customerId);
-        return res.json({ success: true, customer: updated });
+        if (!customer) return res.status(404).json({ success: false, error: 'Customer not found.' });
+
+        req.session.customerName = customer.fullName;
+        return res.json({ 
+            success: true, 
+            customer: {
+                id: customer._id,
+                fullName: customer.fullName,
+                phone: customer.phone,
+                email: customer.email,
+                address: customer.address
+            } 
+        });
     } catch (err) {
+        console.error('Update profile error:', err);
         return res.status(500).json({ success: false, error: 'Could not update profile.' });
     }
 });
@@ -109,19 +161,25 @@ router.patch('/profile', requireCustomer, (req, res) => {
 // ================================================================
 // PATCH /api/customers/password  — Change password
 // ================================================================
-router.patch('/password', requireCustomer, (req, res) => {
+router.patch('/password', requireCustomer, async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) return res.status(400).json({ success: false, error: 'Both fields required.' });
     if (newPassword.length < 6) return res.status(400).json({ success: false, error: 'New password must be at least 6 characters.' });
 
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.session.customerId);
-    if (!bcrypt.compareSync(currentPassword, customer.password_hash)) {
-        return res.status(401).json({ success: false, error: 'Current password is incorrect.' });
-    }
+    try {
+        const customer = await Customer.findById(req.session.customerId);
+        if (!customer || !bcrypt.compareSync(currentPassword, customer.passwordHash)) {
+            return res.status(401).json({ success: false, error: 'Current password is incorrect.' });
+        }
 
-    const hash = bcrypt.hashSync(newPassword, 10);
-    db.prepare("UPDATE customers SET password_hash=?, updated_at=datetime('now','localtime') WHERE id=?").run(hash, req.session.customerId);
-    return res.json({ success: true });
+        customer.passwordHash = bcrypt.hashSync(newPassword, 10);
+        await customer.save();
+        
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('Change password error:', err);
+        return res.status(500).json({ success: false, error: 'Could not change password.' });
+    }
 });
 
 module.exports = router;

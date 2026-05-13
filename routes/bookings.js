@@ -2,10 +2,9 @@
 
 const express = require('express');
 const router = express.Router();
-const { v4: uuidv4 } = require('uuid');
-const db = require('../database');
+const Booking = require('../models/Booking');
 const { sendBookingEmail } = require('../mailer');
-const { notifyNewBooking } = require('../notifier');
+const { notifyNewBooking, notifyStatusChange } = require('../notifier');
 
 function requireAuth(req, res, next) {
   if (req.session && req.session.adminId) return next();
@@ -35,24 +34,20 @@ router.post('/', async (req, res) => {
   const booking_ref = generateRef();
 
   try {
-    const stmt = db.prepare(`
-      INSERT INTO bookings (booking_ref, full_name, phone, address, service, pickup_date, pickup_time, estimated_total, notes, customer_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(
-      booking_ref,
-      fullName.trim(),
-      phone.trim(),
-      address.trim(),
+    const bookingData = {
+      bookingRef: booking_ref,
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
       service,
       pickupDate,
-      pickupTime || 'Morning (9 AM - 12 PM)',
-      parseInt(estimatedTotal) || 0,
-      (notes || '').trim(),
-      req.session.customerId || null
-    );
+      pickupTime: pickupTime || 'Morning (9 AM - 12 PM)',
+      estimatedTotal: parseInt(estimatedTotal) || 0,
+      notes: (notes || '').trim(),
+      customerId: req.session.customerId || null
+    };
 
-    const newBooking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(result.lastInsertRowid);
+    const newBooking = await Booking.create(bookingData);
 
     sendBookingEmail(newBooking, customerEmail || '').catch(e => console.error('Email error:', e));
     notifyNewBooking(newBooking).catch(e => console.error('Notify error:', e));
@@ -60,14 +55,14 @@ router.post('/', async (req, res) => {
     return res.status(201).json({
       success: true,
       booking: {
-        id: newBooking.id,
-        bookingRef: newBooking.booking_ref,
-        fullName: newBooking.full_name,
+        id: newBooking._id,
+        bookingRef: newBooking.bookingRef,
+        fullName: newBooking.fullName,
         service: newBooking.service,
-        pickupDate: newBooking.pickup_date,
-        pickupTime: newBooking.pickup_time,
+        pickupDate: newBooking.pickupDate,
+        pickupTime: newBooking.pickupTime,
         status: newBooking.status,
-        createdAt: newBooking.created_at
+        createdAt: newBooking.createdAt
       }
     });
   } catch (err) {
@@ -77,76 +72,101 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/bookings — list (admin)
-router.get('/', requireAuth, (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(50, parseInt(req.query.limit) || 15);
-  const offset = (page - 1) * limit;
+  const skip = (page - 1) * limit;
   const status = req.query.status;
-  const search = req.query.search ? `%${req.query.search}%` : null;
+  const search = req.query.search;
 
-  let where = [], params = [];
-  if (status && status !== 'all') { where.push('status = ?'); params.push(status); }
-  if (search) { where.push('(full_name LIKE ? OR phone LIKE ? OR booking_ref LIKE ?)'); params.push(search, search, search); }
-
-  const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  let query = {};
+  if (status && status !== 'all') { query.status = status; }
+  if (search) {
+    query.$or = [
+      { fullName: { $regex: search, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } },
+      { bookingRef: { $regex: search, $options: 'i' } }
+    ];
+  }
 
   try {
-    const total = db.prepare(`SELECT COUNT(*) as cnt FROM bookings ${whereClause}`).get(...params).cnt;
-    const bookings = db.prepare(`SELECT * FROM bookings ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
-    return res.json({ success: true, bookings, total, page, limit });
+    const total = await Booking.countDocuments(query);
+    const bookings = await Booking.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    return res.json({ 
+      success: true, 
+      bookings: bookings.map(b => ({ ...b.toObject(), id: b._id })), 
+      total, 
+      page, 
+      limit 
+    });
   } catch (err) {
+    console.error('List bookings error:', err);
     return res.status(500).json({ success: false, error: 'Could not load bookings.' });
   }
 });
 
 // GET /api/bookings/stats
-router.get('/stats', requireAuth, (req, res) => {
+router.get('/stats', requireAuth, async (req, res) => {
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const total = db.prepare('SELECT COUNT(*) as n FROM bookings').get().n;
-    const todayCount = db.prepare("SELECT COUNT(*) as n FROM bookings WHERE DATE(created_at) = ?").get(today).n;
-    const pending = db.prepare("SELECT COUNT(*) as n FROM bookings WHERE status = 'pending'").get().n;
-    const active = db.prepare("SELECT COUNT(*) as n FROM bookings WHERE status IN ('confirmed','picked_up','washing','ready')").get().n;
-    const delivered = db.prepare("SELECT COUNT(*) as n FROM bookings WHERE status = 'delivered'").get().n;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const total = await Booking.countDocuments();
+    const todayCount = await Booking.countDocuments({ createdAt: { $gte: startOfToday } });
+    const pending = await Booking.countDocuments({ status: 'pending' });
+    const active = await Booking.countDocuments({ status: { $in: ['confirmed', 'picked_up', 'washing', 'ready'] } });
+    const delivered = await Booking.countDocuments({ status: 'delivered' });
+
     return res.json({ success: true, stats: { total, today: todayCount, pending, active, delivered } });
   } catch (err) {
+    console.error('Stats error:', err);
     return res.status(500).json({ success: false, error: 'Could not load stats.' });
   }
 });
 
 // GET /api/bookings/:id
-router.get('/:id', requireAuth, (req, res) => {
-  const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.id);
-  if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
-  return res.json({ success: true, booking });
+router.get('/:id', requireAuth, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
+    return res.json({ success: true, booking: { ...booking.toObject(), id: booking._id } });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Error fetching booking.' });
+  }
 });
 
 // PATCH /api/bookings/:id/status
-router.patch('/:id/status', requireAuth, (req, res) => {
+router.patch('/:id/status', requireAuth, async (req, res) => {
   const { status } = req.body;
   const valid = ['pending', 'confirmed', 'picked_up', 'washing', 'ready', 'delivered', 'cancelled'];
   if (!valid.includes(status)) return res.status(400).json({ success: false, error: 'Invalid status.' });
 
-  const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.id);
-  if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
-
   try {
-    db.prepare("UPDATE bookings SET status=?, updated_at=datetime('now','localtime') WHERE id=?").run(status, req.params.id);
-    const updated = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.id);
-    const { notifyStatusChange } = require('../notifier');
-    notifyStatusChange(updated).catch(() => { });
-    return res.json({ success: true, status });
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id, 
+      { status }, 
+      { new: true }
+    );
+    
+    if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
+
+    notifyStatusChange(booking).catch(() => { });
+    return res.json({ success: true, status: booking.status });
   } catch (err) {
+    console.error('Update status error:', err);
     return res.status(500).json({ success: false, error: 'Could not update status.' });
   }
 });
 
 // DELETE /api/bookings/:id
-router.delete('/:id', requireAuth, (req, res) => {
-  const booking = db.prepare('SELECT id, booking_ref FROM bookings WHERE id = ?').get(req.params.id);
-  if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    db.prepare('DELETE FROM bookings WHERE id = ?').run(req.params.id);
+    const booking = await Booking.findByIdAndDelete(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
     return res.json({ success: true });
   } catch (err) {
     return res.status(500).json({ success: false, error: 'Could not delete.' });

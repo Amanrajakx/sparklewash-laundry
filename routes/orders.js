@@ -3,22 +3,21 @@
 
 const express = require('express');
 const router = express.Router();
-const db = require('../database');
+const Booking = require('../models/Booking');
 const { requireCustomer } = require('./customers');
 
 // ================================================================
 // GET /api/orders  — Get all orders for logged-in customer
 // ================================================================
-router.get('/', requireCustomer, (req, res) => {
+router.get('/', requireCustomer, async (req, res) => {
     try {
-        const orders = db.prepare(`
-      SELECT id, booking_ref, full_name, service, pickup_date, pickup_time, estimated_total, status, notes, created_at, updated_at
-      FROM bookings
-      WHERE customer_id = ?
-      ORDER BY created_at DESC
-    `).all(req.session.customerId);
+        const orders = await Booking.find({ customerId: req.session.customerId })
+            .sort({ createdAt: -1 });
 
-        return res.json({ success: true, orders });
+        return res.json({ 
+            success: true, 
+            orders: orders.map(o => ({ ...o.toObject(), id: o._id })) 
+        });
     } catch (err) {
         console.error('Orders fetch error:', err);
         return res.status(500).json({ success: false, error: 'Could not load orders.' });
@@ -26,19 +25,17 @@ router.get('/', requireCustomer, (req, res) => {
 });
 
 // ================================================================
-// GET /api/orders/:ref  — Track a specific order by booking ref
+// GET /api/orders/track/:ref  — Track a specific order by booking ref
 // Also allows guest tracking (no login needed — just ref number)
 // ================================================================
-router.get('/track/:ref', (req, res) => {
+router.get('/track/:ref', async (req, res) => {
     try {
-        const order = db.prepare(`
-      SELECT booking_ref, full_name, service, pickup_date, pickup_time, estimated_total, status, notes, created_at, updated_at
-      FROM bookings WHERE booking_ref = ?
-    `).get(req.params.ref.toUpperCase());
+        const order = await Booking.findOne({ bookingRef: req.params.ref.toUpperCase() });
 
         if (!order) return res.status(404).json({ success: false, error: 'Booking not found. Please check your reference number.' });
-        return res.json({ success: true, order });
+        return res.json({ success: true, order: { ...order.toObject(), id: order._id } });
     } catch (err) {
+        console.error('Track order error:', err);
         return res.status(500).json({ success: false, error: 'Could not track order.' });
     }
 });
@@ -47,18 +44,28 @@ router.get('/track/:ref', (req, res) => {
 // POST /api/orders/link  — Link a booking ref to logged-in customer
 // (So old bookings made before account creation can be claimed)
 // ================================================================
-router.post('/link', requireCustomer, (req, res) => {
+router.post('/link', requireCustomer, async (req, res) => {
     const { bookingRef } = req.body;
     if (!bookingRef) return res.status(400).json({ success: false, error: 'Booking reference is required.' });
 
-    const booking = db.prepare('SELECT * FROM bookings WHERE booking_ref = ?').get(bookingRef.trim().toUpperCase());
-    if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
-    if (booking.customer_id && booking.customer_id !== req.session.customerId) {
-        return res.status(403).json({ success: false, error: 'This booking belongs to another account.' });
-    }
+    try {
+        const cleanRef = bookingRef.trim().toUpperCase();
+        const booking = await Booking.findOne({ bookingRef: cleanRef });
+        
+        if (!booking) return res.status(404).json({ success: false, error: 'Booking not found.' });
+        
+        if (booking.customerId && booking.customerId.toString() !== req.session.customerId.toString()) {
+            return res.status(403).json({ success: false, error: 'This booking belongs to another account.' });
+        }
 
-    db.prepare('UPDATE bookings SET customer_id = ? WHERE booking_ref = ?').run(req.session.customerId, bookingRef.trim().toUpperCase());
-    return res.json({ success: true, message: 'Booking linked to your account!' });
+        booking.customerId = req.session.customerId;
+        await booking.save();
+        
+        return res.json({ success: true, message: 'Booking linked to your account!' });
+    } catch (err) {
+        console.error('Link order error:', err);
+        return res.status(500).json({ success: false, error: 'Could not link booking.' });
+    }
 });
 
 module.exports = router;
