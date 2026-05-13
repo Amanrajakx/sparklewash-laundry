@@ -13,7 +13,11 @@ const SERVICE_LABELS = {
 };
 
 function createTransporter() {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+
+  if (
+    !process.env.SMTP_USER ||
+    !process.env.SMTP_PASS
+  ) {
     console.log('⚠️ SMTP not configured');
     return null;
   }
@@ -21,14 +25,21 @@ function createTransporter() {
   console.log('📧 Creating Brevo SMTP transporter');
 
   return nodemailer.createTransport({
+
     host: 'smtp-relay.brevo.com',
-    port: 587,
+
+    port: 2525,
+
     secure: false,
 
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
-    }
+    },
+
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000
   });
 }
 
@@ -59,7 +70,7 @@ async function sendAdminEmail(booking) {
       SERVICE_LABELS[booking.service] || booking.service;
 
     const info = await transporter.sendMail({
-      from: `"Laundry Aman" <${process.env.EMAIL_USER}>`,
+      from: `"Laundry Aman" <${process.env.SMTP_USER}>`,
       to: ownerEmail,
       subject: `🧺 New Booking ${booking.bookingRef}`,
 
@@ -98,7 +109,7 @@ async function sendCustomerEmail(
     if (!transporter) return;
 
     const info = await transporter.sendMail({
-      from: `"Laundry Aman" <${process.env.EMAIL_USER}>`,
+      from: `"Laundry Aman" <${process.env.SMTP_USER}>`,
       to: customerEmail,
       subject: `✅ Booking Confirmed - ${booking.bookingRef}`,
 
