@@ -699,13 +699,13 @@
             if (!data.loggedIn) return window.location.href = '/login';
 
             currentCustomer = data.customer;
-            const initials = data.customer.full_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            const initials = data.customer.fullName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
             document.getElementById('avatar-initials').textContent = initials;
-            document.getElementById('sidebar-name').textContent = data.customer.full_name;
+            document.getElementById('sidebar-name').textContent = data.customer.fullName;
             document.getElementById('sidebar-phone').textContent = data.customer.phone;
-            document.getElementById('nav-name').textContent = '👋 ' + data.customer.full_name.split(' ')[0];
+            document.getElementById('nav-name').textContent = '👋 ' + data.customer.fullName.split(' ')[0];
 
-            document.getElementById('profile-name').value = data.customer.full_name;
+            document.getElementById('profile-name').value = data.customer.fullName;
             document.getElementById('profile-phone').value = data.customer.phone;
             document.getElementById('profile-email').value = data.customer.email || '';
             document.getElementById('profile-address').value = data.customer.address || '';
