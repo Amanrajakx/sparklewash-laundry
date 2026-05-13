@@ -70,7 +70,7 @@ async function sendAdminEmail(booking) {
       SERVICE_LABELS[booking.service] || booking.service;
 
     const info = await transporter.sendMail({
-      from: `"Laundry Aman" <${process.env.SMTP_USER}>`,
+      from: '"SparkleWash" <amanrajak657@gmail.com>',
       to: ownerEmail,
       subject: `🧺 New Booking ${booking.bookingRef}`,
 
@@ -109,7 +109,7 @@ async function sendCustomerEmail(
     if (!transporter) return;
 
     const info = await transporter.sendMail({
-      from: `"Laundry Aman" <${process.env.SMTP_USER}>`,
+      from: '"SparkleWash" <amanrajak657@gmail.com>',
       to: customerEmail,
       subject: `✅ Booking Confirmed - ${booking.bookingRef}`,
 
