@@ -16,6 +16,7 @@ const customersRouter = require('./routes/customers');
 const ordersRouter = require('./routes/orders');
 
 const app = express();
+app.set('trust proxy', 1); // Required for sessions to work on Render
 const PORT = process.env.PORT || 3000;
 
 // ---- Middleware ----
@@ -31,9 +32,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'sparklewash-dev-secret',
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Tell session to trust the proxy
   cookie: {
-    secure: false, // Set to true in production with HTTPS
+    secure: true, // Render uses HTTPS, so this should be true
     httpOnly: true,
+    sameSite: 'lax',
     maxAge: 8 * 60 * 60 * 1000 // 8 hours
   }
 }));
