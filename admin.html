@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SparkleWash – Admin Dashboard</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin-style.css" />
+</head>
+<body>
+
+  <!-- ====== LOGIN SCREEN ====== -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">
+        <span>🫧</span>
+        <span class="logo-text">SparkleWash</span>
+      </div>
+      <h1 class="login-title">Admin Login</h1>
+      <p class="login-subtitle">Sign in to manage your laundry bookings</p>
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label for="login-username" class="form-label">Username</label>
+          <input type="text" id="login-username" class="form-input" placeholder="admin" autocomplete="username" required />
+        </div>
+        <div class="form-group">
+          <label for="login-password" class="form-label">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="Enter password" autocomplete="current-password" required />
+        </div>
+        <div class="login-error hidden" id="login-error"></div>
+        <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+          <span class="btn-text">Sign In →</span>
+          <span class="btn-loading hidden">Signing in...</span>
+        </button>
+      </form>
+      <a href="/" class="login-back">← Back to Website</a>
+    </div>
+  </div>
+
+  <!-- ====== MAIN DASHBOARD ====== -->
+  <div class="dashboard hidden" id="dashboard">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span>🫧</span>
+          <span class="logo-text">SparkleWash</span>
+        </div>
+        <div class="sidebar-badge">Admin</div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" id="nav-bookings" data-tab="bookings">
+          <span class="nav-icon">📋</span> All Bookings
+        </a>
+        <a href="#" class="nav-item" id="nav-pending" data-tab="pending">
+          <span class="nav-icon">⏳</span> Pending
+          <span class="nav-badge" id="pending-count">0</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-active" data-tab="active">
+          <span class="nav-icon">🔄</span> Active Orders
+        </a>
+        <a href="#" class="nav-item" id="nav-delivered" data-tab="delivered">
+          <span class="nav-icon">✅</span> Delivered
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="admin-username" id="admin-username-label">👤 admin</span>
+        <button class="btn-logout" id="logout-btn">Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h2 class="page-title" id="page-title">All Bookings</h2>
+          <span class="page-subtitle" id="page-subtitle">Manage all customer bookings</span>
+        </div>
+        <div class="topbar-right">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-input" class="search-input" placeholder="Search name, phone, ref..." />
+          </div>
+          <button class="btn btn-primary" id="refresh-btn" title="Refresh bookings">↻ Refresh</button>
+        </div>
+      </header>
+
+      <!-- Stats Cards -->
+      <section class="stats-row" id="stats-row">
+        <div class="stat-card" id="stat-total">
+          <div class="stat-icon">📋</div>
+          <div class="stat-info">
+            <span class="stat-number" id="stat-total-num">–</span>
+            <span class="stat-label">Total Bookings</span>
+          </div>
+        </div>
+        <div class="stat-card" id="stat-today">
+          <div class="stat-icon">📅</div>
+          <div class="stat-info">
+            <span class="stat-number" id="stat-today-num">–</span>
+            <span class="stat-label">Today</span>
+          </div>
+        </div>
+        <div class="stat-card pending" id="stat-pending">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-info">
+            <span class="stat-number" id="stat-pending-num">–</span>
+            <span class="stat-label">Pending</span>
+          </div>
+        </div>
+        <div class="stat-card active" id="stat-active">
+          <div class="stat-icon">🔄</div>
+          <div class="stat-info">
+            <span class="stat-number" id="stat-active-num">–</span>
+            <span class="stat-label">Active</span>
+          </div>
+        </div>
+        <div class="stat-card delivered" id="stat-delivered">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <span class="stat-number" id="stat-delivered-num">–</span>
+            <span class="stat-label">Delivered</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bookings Table -->
+      <section class="table-section">
+        <div class="table-header">
+          <div class="table-filters">
+            <button class="filter-btn active" data-status="all">All</button>
+            <button class="filter-btn" data-status="pending">Pending</button>
+            <button class="filter-btn" data-status="confirmed">Confirmed</button>
+            <button class="filter-btn" data-status="picked_up">Picked Up</button>
+            <button class="filter-btn" data-status="washing">Washing</button>
+            <button class="filter-btn" data-status="ready">Ready</button>
+            <button class="filter-btn" data-status="delivered">Delivered</button>
+            <button class="filter-btn" data-status="cancelled">Cancelled</button>
+          </div>
+          <span class="table-count" id="table-count">Loading...</span>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="bookings-table" id="bookings-table">
+            <thead>
+              <tr>
+                <th>Ref #</th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Service</th>
+                <th>Pickup Date</th>
+                <th>Booked At</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-tbody">
+              <tr class="loading-row">
+                <td colspan="8">
+                  <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <span>Loading bookings...</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state hidden" id="empty-state">
+          <div class="empty-icon">📭</div>
+          <h3>No bookings found</h3>
+          <p>There are no bookings matching your current filter.</p>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+          <button class="page-btn" id="prev-page" disabled>← Prev</button>
+          <span class="page-info" id="page-info">Page 1</span>
+          <button class="page-btn" id="next-page">Next →</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ====== BOOKING DETAIL MODAL ====== -->
+  <div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal" id="booking-modal" role="dialog" aria-modal="true" aria-label="Booking Details">
+      <div class="modal-header">
+        <h3 class="modal-title">Booking Details</h3>
+        <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== TOAST ====== -->
+  <div class="toast hidden" id="toast" role="alert" aria-live="polite"></div>
+
+  <script src="admin-script.js"></script>
+</body>
+</html>

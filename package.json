@@ -1,0 +1,19 @@
+{
+  "name": "sparklewash-backend",
+  "version": "1.0.0",
+  "description": "SparkleWash Laundry Backend - Node.js + Express + SQLite",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --experimental-sqlite server.js",
+    "dev": "node --experimental-sqlite server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "bcryptjs": "^2.4.3",
+    "express-session": "^1.18.0",
+    "uuid": "^9.0.1"
+  }
+}
