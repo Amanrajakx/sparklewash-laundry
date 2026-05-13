@@ -15,13 +15,15 @@ const SERVICE_LABELS = {
 function createTransporter() {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS ||
     process.env.EMAIL_USER === 'your_gmail@gmail.com') {
+    console.log('⚠️  EMAIL not configured — skipping email send.');
     return null;
   }
+  console.log(`📧 Email transporter created for: ${process.env.EMAIL_USER}`);
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
+      pass: process.env.EMAIL_PASS.replace(/\s/g, '') // remove spaces from app password
     }
   });
 }
@@ -72,6 +74,9 @@ async function sendAdminEmail(booking) {
     `
   });
   console.log(`📧 Admin email sent to ${ownerEmail} for booking ${booking.bookingRef}`);
+} catch (err) {
+  console.error('❌ ADMIN EMAIL ERROR:', err.message);
+  throw err;
 }
 
 // ================================================================
@@ -147,6 +152,9 @@ async function sendCustomerEmail(booking, customerEmail) {
     `
   });
   console.log(`📧 Customer email sent to ${customerEmail} for booking ${booking.bookingRef}`);
+} catch (err) {
+  console.error('❌ CUSTOMER EMAIL ERROR:', err.message);
+  throw err;
 }
 
 // Helper to build table rows
