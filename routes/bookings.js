@@ -2,6 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
+
 const Booking = require('../models/Booking');
 
 const { sendBookingEmails } = require('../mailer');
@@ -11,8 +12,13 @@ const {
   notifyStatusChange
 } = require('../notifier');
 
+// ======================================================
+// AUTH
+// ======================================================
 function requireAuth(req, res, next) {
-  if (req.session && req.session.adminId) return next();
+  if (req.session && req.session.adminId) {
+    return next();
+  }
 
   return res.status(401).json({
     success: false,
@@ -20,6 +26,9 @@ function requireAuth(req, res, next) {
   });
 }
 
+// ======================================================
+// BOOKING REF
+// ======================================================
 function generateRef() {
   const ts = Date.now()
     .toString(36)
@@ -34,9 +43,9 @@ function generateRef() {
   return `SW-${ts}${rand}`;
 }
 
-// ================================================================
-// POST /api/bookings — create booking (public)
-// ================================================================
+// ======================================================
+// CREATE BOOKING
+// ======================================================
 router.post('/', async (req, res) => {
   const {
     fullName,
@@ -81,7 +90,10 @@ router.post('/', async (req, res) => {
     errors.push('Please select a valid service.');
   }
 
-  if (!pickupDate || isNaN(Date.parse(pickupDate))) {
+  if (
+    !pickupDate ||
+    isNaN(Date.parse(pickupDate))
+  ) {
     errors.push('Valid pickup date is required.');
   }
 
@@ -92,58 +104,109 @@ router.post('/', async (req, res) => {
     });
   }
 
-  const booking_ref = generateRef();
+  const bookingRef = generateRef();
 
   try {
+
+    // ======================================================
+    // CREATE BOOKING OBJECT
+    // ======================================================
     const bookingData = {
-      bookingRef: booking_ref,
+      bookingRef,
+
       fullName: fullName.trim(),
+
       phone: phone.trim(),
+
       address: address.trim(),
+
       service,
+
       pickupDate,
+
       pickupTime:
-        pickupTime || 'Morning (9 AM - 12 PM)',
+        pickupTime ||
+        'Morning (9 AM - 12 PM)',
+
       estimatedTotal:
         parseInt(estimatedTotal) || 0,
+
       notes: (notes || '').trim(),
-      customerId: req.session.customerId || null
+
+      customerId:
+        req.session.customerId || null
     };
 
-    const newBooking = await Booking.create(
-      bookingData
+    // ======================================================
+    // SAVE TO DATABASE
+    // ======================================================
+    const newBooking =
+      await Booking.create(bookingData);
+
+    console.log(
+      '✅ Booking created:',
+      newBooking.bookingRef
     );
 
-    // Send emails
+    // ======================================================
+    // SEND EMAILS
+    // ======================================================
     sendBookingEmails(
       newBooking,
       customerEmail || ''
-    ).catch(e =>
-      console.error('Email error:', e)
-    );
+    ).catch((err) => {
+      console.error(
+        '❌ Email send error:',
+        err
+      );
+    });
 
-    // Notifications
-    notifyNewBooking(newBooking).catch(e =>
-      console.error('Notify error:', e)
-    );
+    // ======================================================
+    // SEND WHATSAPP / NOTIFICATION
+    // ======================================================
+    notifyNewBooking(newBooking).catch((err) => {
+      console.error(
+        '❌ Notify error:',
+        err
+      );
+    });
 
+    // ======================================================
+    // SUCCESS RESPONSE
+    // ======================================================
     return res.status(201).json({
       success: true,
+
       booking: {
         id: newBooking._id,
-        bookingRef: newBooking.bookingRef,
-        fullName: newBooking.fullName,
-        service: newBooking.service,
-        pickupDate: newBooking.pickupDate,
-        pickupTime: newBooking.pickupTime,
-        status: newBooking.status,
-        createdAt: newBooking.createdAt
+
+        bookingRef:
+          newBooking.bookingRef,
+
+        fullName:
+          newBooking.fullName,
+
+        service:
+          newBooking.service,
+
+        pickupDate:
+          newBooking.pickupDate,
+
+        pickupTime:
+          newBooking.pickupTime,
+
+        status:
+          newBooking.status,
+
+        createdAt:
+          newBooking.createdAt
       }
     });
 
   } catch (err) {
+
     console.error(
-      'Create booking error:',
+      '❌ Create booking error:',
       err
     );
 
@@ -154,95 +217,118 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ================================================================
-// GET /api/bookings — list (admin)
-// ================================================================
-router.get('/', requireAuth, async (req, res) => {
-  const page = Math.max(
-    1,
-    parseInt(req.query.page) || 1
-  );
+// ======================================================
+// LIST BOOKINGS
+// ======================================================
+router.get(
+  '/',
+  requireAuth,
+  async (req, res) => {
 
-  const limit = Math.min(
-    50,
-    parseInt(req.query.limit) || 15
-  );
+    const page =
+      Math.max(
+        1,
+        parseInt(req.query.page) || 1
+      );
 
-  const skip = (page - 1) * limit;
+    const limit =
+      Math.min(
+        50,
+        parseInt(req.query.limit) || 15
+      );
 
-  const status = req.query.status;
-  const search = req.query.search;
+    const skip =
+      (page - 1) * limit;
 
-  let query = {};
+    const status =
+      req.query.status;
 
-  if (status && status !== 'all') {
-    query.status = status;
-  }
+    const search =
+      req.query.search;
 
-  if (search) {
-    query.$or = [
-      {
-        fullName: {
-          $regex: search,
-          $options: 'i'
+    let query = {};
+
+    if (
+      status &&
+      status !== 'all'
+    ) {
+      query.status = status;
+    }
+
+    if (search) {
+      query.$or = [
+        {
+          fullName: {
+            $regex: search,
+            $options: 'i'
+          }
+        },
+
+        {
+          phone: {
+            $regex: search,
+            $options: 'i'
+          }
+        },
+
+        {
+          bookingRef: {
+            $regex: search,
+            $options: 'i'
+          }
         }
-      },
-      {
-        phone: {
-          $regex: search,
-          $options: 'i'
-        }
-      },
-      {
-        bookingRef: {
-          $regex: search,
-          $options: 'i'
-        }
-      }
-    ];
+      ];
+    }
+
+    try {
+
+      const total =
+        await Booking.countDocuments(query);
+
+      const bookings =
+        await Booking.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit);
+
+      return res.json({
+        success: true,
+
+        bookings: bookings.map((b) => ({
+          ...b.toObject(),
+          id: b._id
+        })),
+
+        total,
+        page,
+        limit
+      });
+
+    } catch (err) {
+
+      console.error(
+        '❌ List bookings error:',
+        err
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: 'Could not load bookings.'
+      });
+    }
   }
+);
 
-  try {
-    const total =
-      await Booking.countDocuments(query);
-
-    const bookings = await Booking.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    return res.json({
-      success: true,
-      bookings: bookings.map(b => ({
-        ...b.toObject(),
-        id: b._id
-      })),
-      total,
-      page,
-      limit
-    });
-
-  } catch (err) {
-    console.error(
-      'List bookings error:',
-      err
-    );
-
-    return res.status(500).json({
-      success: false,
-      error: 'Could not load bookings.'
-    });
-  }
-});
-
-// ================================================================
-// GET /api/bookings/stats
-// ================================================================
+// ======================================================
+// STATS
+// ======================================================
 router.get(
   '/stats',
   requireAuth,
   async (req, res) => {
+
     try {
+
       const startOfToday = new Date();
 
       startOfToday.setHours(
@@ -286,6 +372,7 @@ router.get(
 
       return res.json({
         success: true,
+
         stats: {
           total,
           today: todayCount,
@@ -296,7 +383,11 @@ router.get(
       });
 
     } catch (err) {
-      console.error('Stats error:', err);
+
+      console.error(
+        '❌ Stats error:',
+        err
+      );
 
       return res.status(500).json({
         success: false,
@@ -306,45 +397,53 @@ router.get(
   }
 );
 
-// ================================================================
-// GET /api/bookings/:id
-// ================================================================
-router.get('/:id', requireAuth, async (req, res) => {
-  try {
-    const booking = await Booking.findById(
-      req.params.id
-    );
+// ======================================================
+// GET SINGLE BOOKING
+// ======================================================
+router.get(
+  '/:id',
+  requireAuth,
+  async (req, res) => {
 
-    if (!booking) {
-      return res.status(404).json({
+    try {
+
+      const booking =
+        await Booking.findById(req.params.id);
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          error: 'Booking not found.'
+        });
+      }
+
+      return res.json({
+        success: true,
+
+        booking: {
+          ...booking.toObject(),
+          id: booking._id
+        }
+      });
+
+    } catch (err) {
+
+      return res.status(500).json({
         success: false,
-        error: 'Booking not found.'
+        error: 'Error fetching booking.'
       });
     }
-
-    return res.json({
-      success: true,
-      booking: {
-        ...booking.toObject(),
-        id: booking._id
-      }
-    });
-
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: 'Error fetching booking.'
-    });
   }
-});
+);
 
-// ================================================================
-// PATCH /api/bookings/:id/status
-// ================================================================
+// ======================================================
+// UPDATE STATUS
+// ======================================================
 router.patch(
   '/:id/status',
   requireAuth,
   async (req, res) => {
+
     const { status } = req.body;
 
     const valid = [
@@ -365,6 +464,7 @@ router.patch(
     }
 
     try {
+
       const booking =
         await Booking.findByIdAndUpdate(
           req.params.id,
@@ -379,7 +479,8 @@ router.patch(
         });
       }
 
-      notifyStatusChange(booking).catch(() => { });
+      notifyStatusChange(booking)
+        .catch(() => { });
 
       return res.json({
         success: true,
@@ -387,8 +488,9 @@ router.patch(
       });
 
     } catch (err) {
+
       console.error(
-        'Update status error:',
+        '❌ Update status error:',
         err
       );
 
@@ -400,33 +502,40 @@ router.patch(
   }
 );
 
-// ================================================================
-// DELETE /api/bookings/:id
-// ================================================================
-router.delete('/:id', requireAuth, async (req, res) => {
-  try {
-    const booking =
-      await Booking.findByIdAndDelete(
-        req.params.id
-      );
+// ======================================================
+// DELETE BOOKING
+// ======================================================
+router.delete(
+  '/:id',
+  requireAuth,
+  async (req, res) => {
 
-    if (!booking) {
-      return res.status(404).json({
+    try {
+
+      const booking =
+        await Booking.findByIdAndDelete(
+          req.params.id
+        );
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          error: 'Booking not found.'
+        });
+      }
+
+      return res.json({
+        success: true
+      });
+
+    } catch (err) {
+
+      return res.status(500).json({
         success: false,
-        error: 'Booking not found.'
+        error: 'Could not delete.'
       });
     }
-
-    return res.json({
-      success: true
-    });
-
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: 'Could not delete.'
-    });
   }
-});
+);
 
 module.exports = router;
