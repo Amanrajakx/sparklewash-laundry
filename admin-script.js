@@ -176,14 +176,14 @@ function renderBookings(bookings) {
 
   bookingsTbody.innerHTML = bookings.map(b => `
     <tr id="row-${b.id}">
-      <td><span class="booking-ref">${escHtml(b.booking_ref)}</span></td>
-      <td><span class="customer-name">${escHtml(b.full_name)}</span></td>
+      <td><span class="booking-ref">${escHtml(b.bookingRef)}</span></td>
+      <td><span class="customer-name">${escHtml(b.fullName)}</span></td>
       <td><a href="tel:${escHtml(b.phone)}" class="phone-link">${escHtml(b.phone)}</a></td>
       <td>${SERVICE_LABELS[b.service] || b.service}</td>
-      <td>${formatDate(b.pickup_date)}<br><small style="color:var(--text-muted)">${escHtml(b.pickup_time)}</small></td>
-      <td>${formatDateTime(b.created_at)}</td>
+      <td>${formatDate(b.pickupDate)}<br><small style="color:var(--text-muted)">${escHtml(b.pickupTime)}</small></td>
+      <td>${formatDateTime(b.createdAt)}</td>
       <td>
-        <select class="status-select" data-id="${b.id}" onchange="updateStatus(${b.id}, this.value)">
+        <select class="status-select" data-id="${b.id}" onchange="updateStatus('${b.id}', this.value)">
           ${STATUS_OPTIONS.map(s =>
             `<option value="${s.value}" ${s.value === b.status ? 'selected' : ''}>${s.label}</option>`
           ).join('')}
@@ -248,11 +248,11 @@ window.viewBooking = async (id) => {
     modalBody.innerHTML = `
       <div class="detail-row">
         <span class="detail-label">Booking Ref</span>
-        <span class="detail-value" style="color: var(--primary-light); font-weight: 700;">${escHtml(b.booking_ref)}</span>
+        <span class="detail-value" style="color: var(--primary-light); font-weight: 700;">${escHtml(b.bookingRef)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Customer</span>
-        <span class="detail-value">${escHtml(b.full_name)}</span>
+        <span class="detail-value">${escHtml(b.fullName)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Phone</span>
@@ -268,11 +268,11 @@ window.viewBooking = async (id) => {
       </div>
       <div class="detail-row">
         <span class="detail-label">Pickup Date</span>
-        <span class="detail-value">${formatDate(b.pickup_date)} (${escHtml(b.pickup_time)})</span>
+        <span class="detail-value">${formatDate(b.pickupDate)} (${escHtml(b.pickupTime)})</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Estimated Total</span>
-        <span class="detail-value" style="color: var(--accent-green); font-weight: 700;">₹${b.estimated_total || 0}</span>
+        <span class="detail-value" style="color: var(--accent-green); font-weight: 700;">₹${b.estimatedTotal || 0}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Status</span>
@@ -286,11 +286,11 @@ window.viewBooking = async (id) => {
       </div>
       <div class="detail-row">
         <span class="detail-label">Booked At</span>
-        <span class="detail-value" style="color: var(--text-muted);">${formatDateTime(b.created_at)}</span>
+        <span class="detail-value" style="color: var(--text-muted);">${formatDateTime(b.createdAt)}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Last Updated</span>
-        <span class="detail-value" style="color: var(--text-muted);">${formatDateTime(b.updated_at)}</span>
+        <span class="detail-value" style="color: var(--text-muted);">${formatDateTime(b.updatedAt)}</span>
       </div>
     `;
 

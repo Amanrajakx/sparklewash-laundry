@@ -39,7 +39,7 @@ async function sendAdminEmail(booking) {
   await transporter.sendMail({
     from: `"Laundry Aman System" <${process.env.EMAIL_USER}>`,
     to: ownerEmail,
-    subject: `🧺 New Booking #${booking.booking_ref} – ${booking.full_name}`,
+    subject: `🧺 New Booking #${booking.bookingRef} – ${booking.fullName}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#007aff,#00c8b4);padding:28px;text-align:center;">
@@ -48,14 +48,14 @@ async function sendAdminEmail(booking) {
         </div>
         <div style="padding:28px;">
           <table style="width:100%;border-collapse:collapse;">
-            ${row('Booking Ref', `<strong style="color:#4db3ff">${booking.booking_ref}</strong>`)}
-            ${row('Customer', booking.full_name)}
+            ${row('Booking Ref', `<strong style="color:#4db3ff">${booking.bookingRef}</strong>`)}
+            ${row('Customer', booking.fullName)}
             ${row('Phone', `<a href="tel:${booking.phone}" style="color:#4db3ff">${booking.phone}</a>`)}
             ${row('Address', booking.address)}
             ${row('Service', `<strong style="color:#00e5c8">${serviceLabel}</strong>`)}
-            ${row('Pickup Date', booking.pickup_date)}
-            ${row('Pickup Time', booking.pickup_time || 'Morning (9 AM - 12 PM)')}
-            ${row('Est. Total', booking.estimated_total ? `<strong style="color:#4db3ff">₹${booking.estimated_total}</strong>` : 'To be calculated')}
+            ${row('Pickup Date', booking.pickupDate)}
+            ${row('Pickup Time', booking.pickupTime || 'Morning (9 AM - 12 PM)')}
+            ${row('Est. Total', booking.estimatedTotal ? `<strong style="color:#4db3ff">₹${booking.estimatedTotal}</strong>` : 'To be calculated')}
             ${row('Notes', booking.notes || 'None')}
           </table>
           <div style="margin-top:24px;text-align:center;">
@@ -71,7 +71,7 @@ async function sendAdminEmail(booking) {
       </div>
     `
   });
-  console.log(`📧 Admin email sent to ${ownerEmail} for booking ${booking.booking_ref}`);
+  console.log(`📧 Admin email sent to ${ownerEmail} for booking ${booking.bookingRef}`);
 }
 
 // ================================================================
@@ -86,7 +86,7 @@ async function sendCustomerEmail(booking, customerEmail) {
   await transporter.sendMail({
     from: `"Laundry Aman" <${process.env.EMAIL_USER}>`,
     to: customerEmail,
-    subject: `✅ Booking Confirmed! #${booking.booking_ref} – Laundry Aman`,
+    subject: `✅ Booking Confirmed! #${booking.bookingRef} – Laundry Aman`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#007aff,#00c8b4);padding:32px;text-align:center;">
@@ -95,20 +95,20 @@ async function sendCustomerEmail(booking, customerEmail) {
           <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Thank you for choosing Laundry Aman</p>
         </div>
         <div style="padding:28px;">
-          <p style="font-size:15px;margin-bottom:20px;">Hi <strong>${booking.full_name}</strong>,<br/>
+          <p style="font-size:15px;margin-bottom:20px;">Hi <strong>${booking.fullName}</strong>,<br/>
           Your laundry booking has been confirmed! Here are your booking details:</p>
 
           <div style="background:#1a1f2e;border-radius:12px;padding:20px;margin-bottom:20px;">
             <div style="text-align:center;margin-bottom:16px;">
               <span style="font-size:13px;color:#9ca8b8;">Booking Reference</span><br/>
-              <span style="font-size:24px;font-weight:bold;color:#4db3ff;">${booking.booking_ref}</span>
+              <span style="font-size:24px;font-weight:bold;color:#4db3ff;">${booking.bookingRef}</span>
             </div>
             <table style="width:100%;border-collapse:collapse;">
               ${row('Service', `<strong style="color:#00e5c8">${serviceLabel}</strong>`)}
-              ${row('Pickup Date', booking.pickup_date)}
-              ${row('Pickup Time', booking.pickup_time || 'Morning (9 AM - 12 PM)')}
+              ${row('Pickup Date', booking.pickupDate)}
+              ${row('Pickup Time', booking.pickupTime || 'Morning (9 AM - 12 PM)')}
               ${row('Address', booking.address)}
-              ${booking.estimated_total ? row('Estimated Total', `<strong style="color:#4db3ff">₹${booking.estimated_total}</strong>`) : ''}
+              ${booking.estimatedTotal ? row('Estimated Total', `<strong style="color:#4db3ff">₹${booking.estimatedTotal}</strong>`) : ''}
               ${booking.notes ? row('Your Notes', booking.notes) : ''}
             </table>
           </div>
@@ -146,7 +146,7 @@ async function sendCustomerEmail(booking, customerEmail) {
       </div>
     `
   });
-  console.log(`📧 Customer email sent to ${customerEmail} for booking ${booking.booking_ref}`);
+  console.log(`📧 Customer email sent to ${customerEmail} for booking ${booking.bookingRef}`);
 }
 
 // Helper to build table rows
