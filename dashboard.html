@@ -574,7 +574,12 @@
 
             <!-- ORDERS PAGE -->
             <div class="page active" id="page-orders">
-                <div class="section-title">My Orders</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <div class="section-title" style="margin-bottom:0">My Orders</div>
+                    <button id="refresh-orders-btn" onclick="refreshOrders()" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;border:1px solid hsla(210,20%,100%,0.08);background:transparent;color:hsl(210,15%,65%);font-size:13px;font-weight:600;cursor:pointer;transition:0.3s ease;font-family:inherit;" onmouseover="this.style.borderColor='hsl(212,100%,62%)';this.style.color='hsl(210,20%,95%)'" onmouseout="this.style.borderColor='hsla(210,20%,100%,0.08)';this.style.color='hsl(210,15%,65%)'">
+                        <span id="refresh-icon" style="display:inline-block;transition:transform 0.5s ease;">↻</span> Refresh
+                    </button>
+                </div>
                 <div class="section-sub">All your laundry bookings in one place</div>
 
                 <div class="stats-row">
@@ -719,6 +724,18 @@
             document.querySelectorAll('.nav-menu a').forEach(a => a.classList.remove('active'));
             document.getElementById('page-' + name).classList.add('active');
             document.getElementById('nav-' + name).classList.add('active');
+        }
+
+        // ---- Refresh Orders ----
+        async function refreshOrders() {
+            const btn = document.getElementById('refresh-orders-btn');
+            const icon = document.getElementById('refresh-icon');
+            btn.disabled = true;
+            icon.style.transform = 'rotate(360deg)';
+            setTimeout(() => { icon.style.transform = 'rotate(0deg)'; }, 500);
+            await loadOrders();
+            btn.disabled = false;
+            showToast('✅ Orders refreshed!', 'success');
         }
 
         // ---- Load Orders ----

@@ -139,7 +139,7 @@ const $$ = (sel, scope = document) => [...scope.querySelectorAll(sel)];
       const data = await res.json();
 
       if (data.success) {
-        showToast(`🎉 Booking ${data.booking.bookingRef} confirmed! We'll contact you shortly.`, 'success');
+        showToast(`🎉 Booking ${data.booking.bookingRef} confirmed! We'll contact you shortly.`, 'success', 15000);
         form.reset();
         resetCalculator();
       } else {
